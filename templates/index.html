@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoDrive Matchmaker — Sistem Rekomendasi Kendaraan Ramah Lingkungan</title>
+    <meta name="description" content="Temukan kendaraan paling efisien dan ramah lingkungan sesuai pola komuter Anda. Bandingkan EV dan ICE berdasarkan CO₂, MPG, dan performa.">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- App CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     NAVBAR
+     ═══════════════════════════════════════════ -->
+<nav class="navbar" id="navbar">
+    <div class="nav-inner">
+        <a href="#hero" class="nav-brand">
+            <div class="nav-brand-icon"><i class="fa-solid fa-leaf"></i></div>
+            Eco<em style="font-style:italic;font-weight:300;color:var(--forest-bright);">Drive</em>
+        </a>
+        <div class="nav-links">
+            <a href="#hero" class="nav-link active" data-section="hero">Beranda</a>
+            <a href="#rekomendasi" class="nav-link" data-section="rekomendasi">Rekomendasi</a>
+            {% if recommendations and recommendations|length > 0 %}
+            <a href="#dashboard" class="nav-link" data-section="dashboard">Dashboard</a>
+            <a href="#analitik" class="nav-link" data-section="analitik">Analitik</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+
+<!-- ═══════════════════════════════════════════
+     HERO LANDING
+     ═══════════════════════════════════════════ -->
+<section class="hero-landing" id="hero">
+    <div class="hero-blob hero-blob-1"></div>
+    <div class="hero-blob hero-blob-2"></div>
+    <div class="hero-blob hero-blob-3"></div>
+    <div class="leaf-particles"></div>
+
+    <div class="hero-content">
+        <div class="hero-eyebrow">
+            <div class="hero-eyebrow-dot"></div>
+            Sistem Rekomendasi Kendaraan Cerdas
+        </div>
+
+        <h1 class="hero-title">
+            Eco<em>Drive</em><br>Matchmaker
+        </h1>
+
+        <p class="hero-subtitle">
+            Temukan kendaraan paling efisien dan ramah lingkungan yang sempurna sesuai pola berkendara Anda.
+        </p>
+
+        <!-- Dataset Stats Counters -->
+        <div class="hero-stats">
+            <div class="hero-stat">
+                <div class="hero-stat-val" data-count-target="{{ stats.total_vehicles }}">0</div>
+                <div class="hero-stat-label">Total Kendaraan</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-val" data-count-target="{{ stats.total_ev }}">0</div>
+                <div class="hero-stat-label">Mobil Listrik</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-val" data-count-target="{{ stats.total_makes }}">0</div>
+                <div class="hero-stat-label">Merek Tersedia</div>
+            </div>
+            <div class="hero-stat">
+                <div class="hero-stat-val" data-count-target="{{ stats.zero_emission }}">0</div>
+                <div class="hero-stat-label">Zero Emission</div>
+            </div>
+        </div>
+
+        <a href="#rekomendasi" class="btn-cta">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            Mulai Eksplorasi
+        </a>
+    </div>
+
+    <div class="scroll-indicator">
+        <i class="fa-solid fa-chevron-down"></i>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     REKOMENDASI SECTION
+     ═══════════════════════════════════════════ -->
+<section id="rekomendasi">
+    <div class="section" style="padding-bottom:1rem;">
+        <div class="section-header fade-in">
+            <div class="section-eyebrow">Rekomendasi Cerdas</div>
+            <h2 class="section-title">Temukan Kendaraan <span>Ideal</span> Anda</h2>
+            <p class="section-desc">Atur preferensi komuter dan kepedulian lingkungan, lalu biarkan algoritma kami menemukan yang terbaik.</p>
+        </div>
+    </div>
+
+    <div class="app-layout">
+        <!-- SIDEBAR FILTER -->
+        <aside>
+            <div class="filter-panel fade-in">
+                <div class="panel-heading">
+                    <div class="icon-box"><i class="fa-solid fa-sliders"></i></div>
+                    Filter Preferensi
+                </div>
+                <form method="POST" action="/" id="filterForm">
+                    <div class="field-group">
+                        <label class="field-label" for="min_year">Tahun Produksi Minimum</label>
+                        <select class="field-select" name="min_year" id="min_year">
+                            <option value="2015">2015 ke atas</option>
+                            <option value="2018">2018 ke atas</option>
+                            <option value="2020" selected>2020 ke atas</option>
+                            <option value="2022">2022 ke atas</option>
+                            <option value="2024">Mobil Baru (2024+)</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" for="fuel_pref">Kategori Kendaraan</label>
+                        <select class="field-select" name="fuel_pref" id="fuel_pref">
+                            <option value="All">Semua (EV &amp; ICE)</option>
+                            <option value="EV Only">Hanya Mobil Listrik (EV)</option>
+                            <option value="ICE Only">Hanya Bahan Bakar Minyak (ICE)</option>
+                        </select>
+                    </div>
+                    <hr class="panel-sep">
+                    <div class="slider-group">
+                        <div class="slider-top">
+                            <label class="field-label" style="margin:0" for="city_ratio">Rute Komuter Harian</label>
+                            <span class="slider-val-display" id="cityDisp">50%</span>
+                        </div>
+                        <input type="range" name="city_ratio" id="city_ratio" min="0" max="100" value="50" oninput="syncSlider(this,'cityDisp','%')">
+                        <div class="slider-ends"><span>🛣 Tol</span><span>🏙 Kota</span></div>
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-top">
+                            <label class="field-label" style="margin:0" for="eco_priority">Prioritas Lingkungan</label>
+                            <span class="slider-val-display" id="ecoDisp">50%</span>
+                        </div>
+                        <input type="range" name="eco_priority" id="eco_priority" min="0" max="100" value="50" oninput="syncSlider(this,'ecoDisp','%')">
+                        <div class="slider-ends"><span>⚡ MPG</span><span>🌿 CO₂</span></div>
+                    </div>
+                    <hr class="panel-sep">
+                    <button type="submit" class="btn-search" id="submitBtn">
+                        <i class="fa-solid fa-magnifying-glass" style="margin-right:7px;"></i>Cari Rekomendasi
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <!-- RESULTS -->
+        <main>
+            {% if recommendations != None %}
+
+                {% if recommendations|length == 0 %}
+                <!-- No results -->
+                <div style="background:rgba(255,255,255,0.8);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:var(--r-md);padding:1.5rem 2rem;color:var(--ink-muted);display:flex;align-items:center;gap:10px;">
+                    <i class="fa-solid fa-circle-exclamation" style="color:var(--amber);font-size:1.2rem;"></i>
+                    Tidak ada kendaraan yang sesuai kriteria. Coba ubah filter Anda.
+                </div>
+
+                {% else %}
+
+                <!-- KPI STRIP -->
+                {% if kpi %}
+                <div class="kpi-strip" id="dashboard">
+                    <div class="kpi-tile kt-green">
+                        <div class="kpi-tile-icon"><i class="fa-solid fa-leaf"></i></div>
+                        <div class="kpi-tile-label">Eco Score Rata-rata</div>
+                        <div class="kpi-tile-val">{{ kpi.avg_eco_score }}<span class="kpi-tile-unit"> poin</span></div>
+                        <div class="kpi-tile-sub">Skor gabungan rekomendasi</div>
+                    </div>
+                    <div class="kpi-tile kt-sky">
+                        <div class="kpi-tile-icon"><i class="fa-solid fa-smog"></i></div>
+                        <div class="kpi-tile-label">CO₂ / Tahun</div>
+                        <div class="kpi-tile-val">{{ kpi.avg_co2_kg }}<span class="kpi-tile-unit"> kg</span></div>
+                        <div class="kpi-tile-sub">Rata-rata emisi tahunan</div>
+                    </div>
+                    <div class="kpi-tile kt-amber">
+                        <div class="kpi-tile-icon"><i class="fa-solid fa-road"></i></div>
+                        <div class="kpi-tile-label">Jangkauan</div>
+                        <div class="kpi-tile-val">{{ kpi.avg_range_miles }}<span class="kpi-tile-unit"> mil</span></div>
+                        <div class="kpi-tile-sub">Rata-rata jarak tempuh</div>
+                    </div>
+                    <div class="kpi-tile kt-terra">
+                        <div class="kpi-tile-icon"><i class="fa-solid fa-city"></i></div>
+                        <div class="kpi-tile-label">Efisiensi Kota</div>
+                        <div class="kpi-tile-val">{{ kpi.avg_city_mpg }}<span class="kpi-tile-unit"> MPG</span></div>
+                        <div class="kpi-tile-sub">Konsumsi kota rata-rata</div>
+                    </div>
+                    <div class="kpi-tile kt-mint">
+                        <div class="kpi-tile-icon"><i class="fa-solid fa-bolt"></i></div>
+                        <div class="kpi-tile-label">Kendaraan Listrik</div>
+                        <div class="kpi-tile-val">{{ kpi.ev_percentage }}<span class="kpi-tile-unit">%</span></div>
+                        <div class="kpi-tile-sub">{{ kpi.ev_count }} dari {{ recommendations|length }} rekomendasi</div>
+                    </div>
+                    <div class="kpi-tile kt-purple">
+                        <div class="kpi-tile-icon"><i class="fa-solid fa-car-side"></i></div>
+                        <div class="kpi-tile-label">Penggerak Dominan</div>
+                        <div class="kpi-tile-val" style="font-size:1.1rem;padding-top:4px;">{{ kpi.dominant_drive }}</div>
+                        <div class="kpi-tile-sub">Mode mayoritas hasil</div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- TOOLBAR -->
+                <div class="toolbar">
+                    <h2 class="toolbar-title">
+                        Rekomendasi <span>({{ recommendations|length }})</span>
+                    </h2>
+                    <div class="toolbar-right">
+                        <button class="sort-btn active" onclick="sortCards('score',this)">Score</button>
+                        <button class="sort-btn" onclick="sortCards('co2',this)">CO₂ Rendah</button>
+                        <button class="sort-btn" onclick="sortCards('mpg',this)">MPG Tinggi</button>
+                        <button class="sort-btn" onclick="sortCards('range',this)">Jarak Jauh</button>
+                        <div class="view-toggle">
+                            <button class="view-btn active" id="btnGrid" onclick="setView('grid')" title="Grid"><i class="fa-solid fa-grip"></i></button>
+                            <button class="view-btn" id="btnList" onclick="setView('list')" title="List"><i class="fa-solid fa-list"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VEHICLE CARDS -->
+                <div class="vehicles-grid" id="vehiclesGrid">
+                    {% for car in recommendations %}
+                    {% set s_pct = (car.Total_Score / 100 * 138) | int %}
+                    {% if car.Total_Score >= 70 %}{% set s_col = '#3D7A52' %}
+                    {% elif car.Total_Score >= 50 %}{% set s_col = '#C8792A' %}
+                    {% else %}{% set s_col = '#B84C3C' %}{% endif %}
+
+                    <div class="v-card"
+                        data-score="{{ car.Total_Score }}"
+                        data-co2="{{ car.Annual_CO2_Footprint_kg }}"
+                        data-mpg="{{ car.Combined_MPG }}"
+                        data-range="{{ car.Unified_Range_Miles }}"
+                        onclick="selectCard(this)">
+
+                        <div class="v-rank">#{{ loop.index }}</div>
+
+                        <div class="v-make">{{ car.Make }}</div>
+                        <div class="v-model">{{ car.Model }}</div>
+                        <div class="v-meta">
+                            <i class="fa-regular fa-calendar" style="margin-right:3px;opacity:.6;"></i>{{ car.Year }}
+                            &nbsp;·&nbsp;{{ car.Vehicle_Category }}
+                        </div>
+
+                        <div class="v-score-row">
+                            <div class="ring-wrap">
+                                <svg width="56" height="56" viewBox="0 0 56 56">
+                                    <circle class="r-track" cx="28" cy="28" r="22" stroke-width="4.5"/>
+                                    <circle class="r-prog"
+                                        cx="28" cy="28" r="22" stroke-width="4.5"
+                                        stroke="{{ s_col }}"
+                                        stroke-dashoffset="{{ 138 - s_pct }}"/>
+                                </svg>
+                                <span class="score-num">{{ car.Total_Score }}</span>
+                            </div>
+                            <div>
+                                <span class="grade-badge g-{{ car.Eco_Grade | replace('+','') }}">Grade {{ car.Eco_Grade }}</span>
+                                <div style="font-size:0.7rem;color:var(--ink-muted);margin-top:5px;">Eco Score</div>
+                            </div>
+                        </div>
+
+                        <div class="spec-chips">
+                            <span class="spec-chip">{{ car.Engine_Profile }}</span>
+                            <span class="spec-chip">{{ car.Transmission_Type }}</span>
+                            <span class="spec-chip">{{ car.Drive_Type }}</span>
+                        </div>
+
+                        <div class="v-stat">
+                            <span class="v-sk">Kombinasi MPG</span>
+                            <span class="v-sv">{{ car.Combined_MPG }} MPG</span>
+                        </div>
+                        <div class="v-stat">
+                            <span class="v-sk">Jarak Tempuh</span>
+                            <span class="v-sv">{{ "%.0f"|format(car.Unified_Range_Miles) }} mil</span>
+                        </div>
+                        <div class="v-stat">
+                            <span class="v-sk">Jejak Karbon / Thn</span>
+                            <span class="v-sv {% if car.Annual_CO2_Footprint_kg < 3000 %}co2-good{% elif car.Annual_CO2_Footprint_kg < 5500 %}co2-warn{% else %}co2-bad{% endif %}">
+                                {{ "%.0f"|format(car.Annual_CO2_Footprint_kg) }} kg
+                            </span>
+                        </div>
+                        <div class="v-stat">
+                            <span class="v-sk">Rasio Kota / Tol</span>
+                            <span class="v-sv">{{ "%.2f"|format(car.City_Highway_Ratio) }}x</span>
+                        </div>
+
+                        <label class="cmp-row" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="cmp-cb"
+                                data-name="{{ car.Make }} {{ car.Model }} {{ car.Year }}"
+                                data-score="{{ car.Total_Score }}"
+                                data-co2="{{ car.Annual_CO2_Footprint_kg }}"
+                                data-mpg="{{ car.Combined_MPG }}"
+                                data-range="{{ "%.0f"|format(car.Unified_Range_Miles) }}"
+                                data-citympg="{{ car.City_MPG if car.City_MPG is defined else car.Combined_MPG }}"
+                                onchange="syncCmpBar()">
+                            Tambahkan ke perbandingan
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% endif %}
+
+            {% else %}
+            <!-- EMPTY STATE -->
+            <div class="empty-state">
+                <div class="empty-icon">🌿</div>
+                <h3 class="empty-title">Mulai Pencarian Anda</h3>
+                <p class="empty-sub">Atur preferensi komuter dan kepedulian lingkungan di panel kiri, lalu temukan kendaraan terbaik.</p>
+                <div class="empty-steps">
+                    <div class="estep"><i class="fa-solid fa-calendar-days"></i> Pilih Tahun</div>
+                    <div class="estep"><i class="fa-solid fa-car"></i> Pilih Kategori</div>
+                    <div class="estep"><i class="fa-solid fa-road"></i> Atur Rute</div>
+                    <div class="estep"><i class="fa-solid fa-leaf"></i> Atur Prioritas</div>
+                    <div class="estep"><i class="fa-solid fa-magnifying-glass"></i> Klik Cari</div>
+                </div>
+            </div>
+            {% endif %}
+        </main>
+    </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     INLINE CHARTS / ANALYTICS SECTION
+     ═══════════════════════════════════════════ -->
+{% if recommendations and recommendations|length > 0 %}
+<section class="charts-section" id="analitik">
+    <div class="section">
+        <div class="section-header fade-in">
+            <div class="section-eyebrow">Analisis Data</div>
+            <h2 class="section-title">Dashboard <span>Analitik</span></h2>
+            <p class="section-desc">Visualisasi mendalam dari hasil rekomendasi kendaraan Anda.</p>
+        </div>
+
+        <div class="chart-tabs fade-in">
+            <button class="chart-tab active" data-tab="co2bar" onclick="switchChartTab('co2bar')">
+                <i class="fa-solid fa-chart-column" style="margin-right:5px;"></i>Emisi CO₂
+            </button>
+            <button class="chart-tab" data-tab="donut" onclick="switchChartTab('donut')">
+                <i class="fa-solid fa-chart-pie" style="margin-right:5px;"></i>Distribusi Kategori
+            </button>
+            <button class="chart-tab" data-tab="scatter" onclick="switchChartTab('scatter')">
+                <i class="fa-solid fa-chart-scatter-bubble" style="margin-right:5px;"></i>MPG vs CO₂
+            </button>
+            <button class="chart-tab" data-tab="radar" onclick="switchChartTab('radar')">
+                <i class="fa-solid fa-spider-web" style="margin-right:5px;"></i>Radar Skor
+            </button>
+        </div>
+
+        <div class="chart-container fade-in">
+            <div class="chart-pane active" id="pane-co2bar">
+                <canvas id="co2BarChart"></canvas>
+            </div>
+            <div class="chart-pane" id="pane-donut">
+                <canvas id="donutChart"></canvas>
+            </div>
+            <div class="chart-pane" id="pane-scatter">
+                <canvas id="scatterChart"></canvas>
+            </div>
+            <div class="chart-pane" id="pane-radar">
+                <canvas id="radarOverviewChart"></canvas>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+
+<!-- ═══════════════════════════════════════════
+     COMPARE BAR (fixed bottom)
+     ═══════════════════════════════════════════ -->
+<div class="cmp-bar" id="cmpBar">
+    <div>
+        <div class="cmp-bar-info"><strong id="cmpCount">0 kendaraan</strong> dipilih untuk dibandingkan</div>
+        <div class="cmp-chips" id="cmpChips"></div>
+    </div>
+    <div class="cmp-acts">
+        <button class="btn-cmp-clr" onclick="clearCmp()"><i class="fa-solid fa-xmark"></i> Bersihkan</button>
+        <button class="btn-cmp-do" onclick="openModal()"><i class="fa-solid fa-chart-bar" style="margin-right:6px;"></i>Bandingkan</button>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     COMPARE MODAL
+     ═══════════════════════════════════════════ -->
+<div class="overlay" id="cmpOverlay" onclick="bgClose(event)">
+    <div class="modal">
+        <div class="modal-head">
+            <h2 class="modal-title">Perbandingan Kendaraan</h2>
+            <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="ctabs">
+            <button class="ctab active" onclick="showTab('radar',this)">🕸 Radar</button>
+            <button class="ctab" onclick="showTab('bar',this)">📊 Bar Chart</button>
+            <button class="ctab" onclick="showTab('table',this)">📋 Tabel</button>
+        </div>
+        <div id="chartWrap"><canvas id="cmpChart" style="max-height:380px;"></canvas></div>
+        <div id="tableWrap" style="display:none;overflow-x:auto;margin-top:0.5rem;"></div>
+    </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <div>
+            <div class="footer-brand">
+                <div class="footer-brand-icon"><i class="fa-solid fa-leaf"></i></div>
+                EcoDrive Matchmaker
+            </div>
+            <p class="footer-text" style="margin-top:0.75rem;">
+                Sistem Rekomendasi Kendaraan Cerdas — Menggunakan algoritma MCDM untuk menemukan kendaraan paling efisien dan ramah lingkungan.
+            </p>
+        </div>
+        <div class="footer-links">
+            <a href="#hero" class="footer-link">Beranda</a>
+            <a href="#rekomendasi" class="footer-link">Rekomendasi</a>
+            {% if recommendations and recommendations|length > 0 %}
+            <a href="#analitik" class="footer-link">Analitik</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="footer-copy">
+        &copy; 2026 EcoDrive Matchmaker — Proyek Sistem Rekomendasi &middot; EEPIS
+    </div>
+</footer>
+
+
+<!-- ═══════════════════════════════════════════
+     SCRIPTS
+     ═══════════════════════════════════════════ -->
+<script id="chartDataPayload" type="application/json">{{ chart_data_json | safe }}</script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+</body>
+</html>
